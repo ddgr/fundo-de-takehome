@@ -1,0 +1,29 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-22.04
+    platform: linux/amd64  # the image is published for amd64 only; Apple Silicon runs it under Rosetta
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Fundo_local_2026!}
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  pipeline:
+    build: .
+    profiles: ["tools"]  # started only by `docker compose run`, never by `docker compose up`
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      MSSQL_HOST: sqlserver
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Fundo_local_2026!}
+      ETL_READER_PASSWORD: ${ETL_READER_PASSWORD:-Reader_local_2026!}
+      WAREHOUSE_PATH: data/warehouse.duckdb
+    volumes:
+      - .:/app
+    working_dir: /app
